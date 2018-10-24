@@ -1,7 +1,7 @@
 # azure-blob-storage-exporter
 
-This is a simple server that scrapes azure blob container stats and exports them via HTTP for
-Prometheus consumption.
+prometheus exporter for azure blob storage
+lists blobs in given container with their size in bytes and creation time in unix timestamp
 
 ## Getting Started
 
