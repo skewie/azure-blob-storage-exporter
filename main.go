@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,10 +12,12 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
-	port = flag.String("port", ":8080", "The port to listen for HTTP requests.")
+	version = "0.0.0"
+	port    = flag.String("port", ":8080", "The port to listen for HTTP requests.")
 
 	blobSizeGaugeVec = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -41,11 +42,24 @@ var (
 
 func main() {
 
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+
+	v := flag.Bool("version", false, "prints current version")
+	flag.Parse()
+
+	// print the version, set via ldflags in build step
+	if *v {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	storageAccountName := os.Getenv("storageAccountName")
 	storageAccountKey := os.Getenv("storageAccountKey")
 	blobContainerName := os.Getenv("blobContainerName")
 
-	// since all env variables are mandatory, we need to check if the exist
+	// since all env variables are mandatory, we need to check if they exist
 	if os.Getenv("storageAccountName") == "" {
 		fmt.Println("storageAccountName is not set, exiting")
 		os.Exit(1)
@@ -61,8 +75,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	flag.Parse()
-
 	prometheus.MustRegister(blobCreatedAtGaugeVec)
 	prometheus.MustRegister(blobSizeGaugeVec)
 
@@ -70,7 +82,7 @@ func main() {
 
 		credential, err := azblob.NewSharedKeyCredential(storageAccountName, storageAccountKey)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("get credentials failed with: %v", err)
 		}
 
 		p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
@@ -98,7 +110,8 @@ func main() {
 
 	}(storageAccountName, storageAccountKey, blobContainerName)
 
-	log.Printf("serving metrics on http://localhost%s/metrics", *port)
+	log.Infof("server startup suceeded")
+	log.Infof("serving metrics on http://localhost%s/metrics", *port)
 	// start prometheus handler and serve metrics
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*port, nil))
@@ -111,7 +124,7 @@ func updateMetrics(ctx context.Context, containerURL azblob.ContainerURL) {
 
 		listBlob, err := containerURL.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("get all blobs failed with: %v", err)
 		}
 
 		// IMPORTANT: ListBlobs returns the start of the next segment; you MUST use this to get

@@ -1,6 +1,7 @@
 # azure-blob-storage-exporter
 
 prometheus exporter for azure blob storage
+
 lists blobs in given container with their size in bytes and creation time in unix timestamp
 
 ## Getting Started
@@ -31,7 +32,7 @@ it will change the default port which is 8080
 
 ### Docker
 
-[![Docker Repository on Docker Hub](https://hub.docker.com/r/benst/azure-blob-storage-exporter/)][hub]
+Link to the Docker Hub Repository [azure-blob-storage-exporter](https://hub.docker.com/r/benst/azure-blob-storage-exporter/)
 
 To run the exporter as a Docker container, run:
 
@@ -39,24 +40,27 @@ To run the exporter as a Docker container, run:
 docker run -p 8080:8080 -e storageAccountName="storage-account-name" -e storageAccountKey="storage-account-access-key" -e blobContainerName="container-name" benst/azure-blob-storage-exporter:0.1.0
 ```
 
-[hub]: https://hub.docker.com/r/benst/azure-blob-storage-exporter/
-
 ### Building
 
+simply build it with:
+`make` or
+`make build`
+
+or if you want a local docker image:
+`make docker-build`
+
+if you don't like Makefiles you can do it yourself with:
+
 ```bash
-go build -o azure-blob-storage-exporter
+go build -ldflags "-X main.version=0.1.0" -o azure-blob-storage-exporter
 ```
 
 or with docker:
 
 ```bash
-docker build -t azure-blob-storage-exporter:latest .
+docker build --build-arg version=0.1.0 -t azure-blob-storage-exporter:latest .
 ```
 
 ## License
 
 MIT
-
-## TODO
-
-tests
