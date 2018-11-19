@@ -6,7 +6,7 @@ lint:
 	golint -set_exit_status
 
 build: 
-	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY_NAME)
+	go build -ldflags "-X main.buildVersion=$(VERSION)" -o $(BINARY_NAME)
 
 docker-build:
 	docker build --build-arg version=$(VERSION) -t $(BINARY_NAME):$(VERSION) .
