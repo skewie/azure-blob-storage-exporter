@@ -100,6 +100,10 @@ func UpdateMetrics(client client.AzureClient) {
 
 	// update metrics within ticker interval
 	for range ticker.C {
+		result, err := client.GetBlobs()
+		if err != nil {
+			log.Errorf("get Blobs failed with: %v \n", err)
+		}
 		for _, blob := range result {
 			myStruct := &metrics.AzureBlobMetrics{Name: blob.Name, Size: blob.ContentSize, CreationTime: blob.CreationTime}
 			metrics.Update(*myStruct)
