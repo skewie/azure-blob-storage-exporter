@@ -1,9 +1,9 @@
 FROM golang:latest AS builder
-ARG version="0.1.0"
+ARG version="dev"
 WORKDIR /go/src/github.com/ben-st/azure-blob-storage-exporter
 COPY . .
 RUN go get -d
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.version=${version}" -o azure-blob-storage-exporter
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.buildVersion=${version}" -o azure-blob-storage-exporter
 
 # Final image.
 FROM alpine:3.8
