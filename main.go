@@ -104,7 +104,7 @@ func UpdateRoutine(client CloudClient, collector Collector, duration time.Durati
 	for range time.NewTicker(duration).C {
 		blobMetaInfos, err := client.GetBlobs()
 		if err != nil {
-			logrus.WithError(err).Error("Couldn't update metrics")
+			log.WithError(err).Error("Couldn't update metrics")
 			continue
 		}
 
