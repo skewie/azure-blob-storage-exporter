@@ -9,8 +9,13 @@ import (
 
 	"github.com/ben-st/azure-blob-storage-exporter/pkg/client"
 	"github.com/ben-st/azure-blob-storage-exporter/pkg/metrics"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/ben-st/azure-blob-storage-exporter/pkg/model"
+
 	log "github.com/sirupsen/logrus"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -21,16 +26,40 @@ var (
 	version      = flag.Bool("version", false, "prints current version")
 )
 
-func main() {
-
+func initialize() (accountName, storageAccountKey, containerName string, err error) {
 	flag.Parse()
-
-	log.SetFormatter(&log.JSONFormatter{})
 
 	if *logLevel != "info" {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
+	}
+
+	accountName = os.Getenv("storageAccountName")
+	storageAccountKey = os.Getenv("storageAccountKey")
+	containerName = os.Getenv("blobContainerName")
+
+	// since all env variables are mandatory, we need to check if they exist
+	if os.Getenv("STORAGE_ACCOUNT_NAME") == "" {
+		return "", "", "", fmt.Errorf("error: storage account name is required")
+	}
+
+	if os.Getenv("STORAGE_ACCOUNT_KEY") == "" {
+		return "", "", "", fmt.Errorf("error: storage account name is required")
+	}
+
+	if os.Getenv("BLOB_CONTAINER_NAME") == "" {
+		return "", "", "", fmt.Errorf("error: storage account name is required")
+	}
+
+	return
+}
+
+func main() {
+	accountName, storageAccountKey, containerName, err := initialize()
+	if err != nil {
+		log.Errorf("Couldn't start the application: %v", err)
+		os.Exit(1)
 	}
 
 	// print the build version, set via ldflags in build step and exit
@@ -39,75 +68,49 @@ func main() {
 		os.Exit(0)
 	}
 
-	accountName := os.Getenv("storageAccountName")
-	storageAccountKey := os.Getenv("storageAccountKey")
-	containerName := os.Getenv("blobContainerName")
-
-	// since all env variables are mandatory, we need to check if they exist
-	if os.Getenv("storageAccountName") == "" {
-		fmt.Println("storageAccountName is not set, exiting")
-		os.Exit(1)
-	}
-
-	if os.Getenv("storageAccountKey") == "" {
-		fmt.Println("storageAccountKey is not set, exiting")
-		os.Exit(1)
-	}
-
-	if os.Getenv("blobContainerName") == "" {
-		fmt.Println("blobContainerName is not set, exiting")
-		os.Exit(1)
-	}
-
 	// register prometheus metrics
-	metrics.New()
+	azureCollector := metrics.NewAzureCollector()
+	prometheus.MustRegister(azureCollector)
 
 	// register a new azure client
-	a, err := client.NewAzureClient(accountName, storageAccountKey, containerName)
+	azureClient, err := client.NewAzureClient(accountName, storageAccountKey, containerName)
 	if err != nil {
 		log.Errorf("could not create new azure client, the error is: %v \n", err)
 	}
 
 	// update metrics in a new goroutine, since http server is blocking
 	// we could avoid this, using the prometheus collector instead
-	go UpdateMetrics(a)
+	go UpdateRoutine(azureClient, azureCollector, 15*time.Second)
 
-	log.Infof("server startup suceeded")
+	log.Info("server startup suceeded")
 	log.Infof("serving metrics on http://localhost%s/metrics", *port)
 
 	// start prometheus handler and serve metrics
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*port, nil))
+}
 
+type CloudClient interface {
+	GetBlobs() ([]model.BlobMetaInformation, error)
+}
+
+type Collector interface {
+	TrackBlobSize(name string, size float64)
+	TrackBlobCreateTime(name string, createdAt float64)
 }
 
 // UpdateMetrics updates prometheus metrics
-func UpdateMetrics(client client.AzureClient) {
-
-	ticker := time.NewTicker(time.Second * time.Duration(*interval))
-
-	result, err := client.GetBlobs()
-	if err != nil {
-		log.Errorf("get Blobs failed with: %v \n", err)
-	}
-
-	// initial metrics update call
-	// otherwise metrics are not updated until ticker finishes the first time
-	for _, blob := range result {
-		myStruct := &metrics.AzureBlobMetrics{Name: blob.Name, Size: blob.ContentSize, CreationTime: blob.CreationTime}
-		metrics.Update(*myStruct)
-	}
-
-	// update metrics within ticker interval
-	for range ticker.C {
-		result, err := client.GetBlobs()
+func UpdateRoutine(client CloudClient, collector Collector, duration time.Duration) {
+	for range time.NewTicker(duration).C {
+		blobMetaInfos, err := client.GetBlobs()
 		if err != nil {
-			log.Errorf("get Blobs failed with: %v \n", err)
+			log.WithError(err).Error("Couldn't update metrics")
+			continue
 		}
-		for _, blob := range result {
-			myStruct := &metrics.AzureBlobMetrics{Name: blob.Name, Size: blob.ContentSize, CreationTime: blob.CreationTime}
-			metrics.Update(*myStruct)
+
+		for _, blobMetaInfo := range blobMetaInfos {
+			collector.TrackBlobSize(blobMetaInfo.Name, blobMetaInfo.ContentSize)
+			collector.TrackBlobCreateTime(blobMetaInfo.Name, blobMetaInfo.CreationTime)
 		}
 	}
-
 }

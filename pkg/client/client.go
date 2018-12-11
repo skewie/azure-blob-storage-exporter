@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/am3o/azure-blob-storage-exporter/pkg/model"
+
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
@@ -12,35 +14,30 @@ type AzureClient struct {
 	containerURL azblob.ContainerURL
 }
 
-func NewAzureClient(accountName, storageAccountKey, containerName string) (AzureClient, error) {
+func NewAzureClient(accountName, storageAccountKey, containerName string) (*AzureClient, error) {
 	credential, err := azblob.NewSharedKeyCredential(accountName, storageAccountKey)
 	if err != nil {
-		return AzureClient{}, err
+		return nil, err
 	}
 	pipeline := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 
 	storageURL, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", accountName))
 	if err != nil {
-		return AzureClient{}, err
+		return nil, err
 	}
 
 	serviceURL := azblob.NewServiceURL(*storageURL, pipeline)
 
 	containerURL := serviceURL.NewContainerURL(containerName)
 
-	return AzureClient{
+	return &AzureClient{
 		containerURL: containerURL,
 	}, nil
 }
 
-type BlobMetaInformation struct {
-	Name         string
-	CreationTime float64
-	ContentSize  float64
-}
+func (ac *AzureClient) GetBlobs() ([]model.BlobMetaInformation, error) {
+	var result []model.BlobMetaInformation
 
-func (ac *AzureClient) GetBlobs() ([]BlobMetaInformation, error) {
-	result := []BlobMetaInformation{}
 	for marker := (azblob.Marker{}); marker.NotDone(); {
 		listBlob, err := ac.containerURL.ListBlobsFlatSegment(context.Background(), marker, azblob.ListBlobsSegmentOptions{})
 		if err != nil {
@@ -51,7 +48,7 @@ func (ac *AzureClient) GetBlobs() ([]BlobMetaInformation, error) {
 		// the next segment (after processing the current result segment).
 		marker = listBlob.NextMarker
 		for _, blobInfo := range listBlob.Segment.BlobItems {
-			result = append(result, BlobMetaInformation{
+			result = append(result, model.BlobMetaInformation{
 				Name:         blobInfo.Name,
 				CreationTime: float64(blobInfo.Properties.CreationTime.Unix()),
 				ContentSize:  float64(*blobInfo.Properties.ContentLength),
