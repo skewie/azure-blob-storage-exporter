@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/am3o/azure-blob-storage-exporter/pkg/client"
-	"github.com/am3o/azure-blob-storage-exporter/pkg/metrics"
-	"github.com/am3o/azure-blob-storage-exporter/pkg/model"
+	"github.com/ben-st/azure-blob-storage-exporter/pkg/client"
+	"github.com/ben-st/azure-blob-storage-exporter/pkg/metrics"
+	"github.com/ben-st/azure-blob-storage-exporter/pkg/model"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -30,9 +30,9 @@ func initialize() (accountName, storageAccountKey, containerName string, err err
 	flag.Parse()
 
 	if *logLevel != "info" {
-		logrus.SetLevel(logrus.DebugLevel)
+		log.SetLevel(log.DebugLevel)
 	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+		log.SetLevel(log.InfoLevel)
 	}
 
 	accountName = os.Getenv("storageAccountName")
@@ -58,7 +58,7 @@ func initialize() (accountName, storageAccountKey, containerName string, err err
 func main() {
 	accountName, storageAccountKey, containerName, err := initialize()
 	if err != nil {
-		logrus.Errorf("Couldn't start the application: %v", err)
+		log.Errorf("Couldn't start the application: %v", err)
 		os.Exit(1)
 	}
 
@@ -75,19 +75,19 @@ func main() {
 	// register a new azure client
 	azureClient, err := client.NewAzureClient(accountName, storageAccountKey, containerName)
 	if err != nil {
-		logrus.Errorf("could not create new azure client, the error is: %v \n", err)
+		log.Errorf("could not create new azure client, the error is: %v \n", err)
 	}
 
 	// update metrics in a new goroutine, since http server is blocking
 	// we could avoid this, using the prometheus collector instead
 	go UpdateRoutine(azureClient, azureCollector, 15*time.Second)
 
-	logrus.Info("server startup suceeded")
-	logrus.Infof("serving metrics on http://localhost%s/metrics", *port)
+	log.Info("server startup suceeded")
+	log.Infof("serving metrics on http://localhost%s/metrics", *port)
 
 	// start prometheus handler and serve metrics
 	http.Handle("/metrics", promhttp.Handler())
-	logrus.Fatal(http.ListenAndServe(*port, nil))
+	log.Fatal(http.ListenAndServe(*port, nil))
 }
 
 type CloudClient interface {
