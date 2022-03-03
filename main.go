@@ -97,6 +97,7 @@ type CloudClient interface {
 type Collector interface {
 	TrackBlobSize(name string, size float64)
 	TrackBlobCreateTime(name string, createdAt float64)
+	TrackBlobUpdatedTime(name string, updatedAt float64)
 }
 
 // UpdateMetrics updates prometheus metrics
@@ -111,6 +112,7 @@ func UpdateRoutine(client CloudClient, collector Collector, duration time.Durati
 		for _, blobMetaInfo := range blobMetaInfos {
 			collector.TrackBlobSize(blobMetaInfo.Name, blobMetaInfo.ContentSize)
 			collector.TrackBlobCreateTime(blobMetaInfo.Name, blobMetaInfo.CreationTime)
+			collector.TrackBlobUpdatedTime(blobMetaInfo.Name, blobMetaInfo.LastModified)
 		}
 	}
 }

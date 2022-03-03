@@ -52,6 +52,7 @@ func (ac *AzureClient) GetBlobs() ([]model.BlobMetaInformation, error) {
 				Name:         blobInfo.Name,
 				CreationTime: float64(blobInfo.Properties.CreationTime.Unix()),
 				ContentSize:  float64(*blobInfo.Properties.ContentLength),
+				LastModified: float64(blobInfo.Properties.CreationTime.Unix()),
 			})
 		}
 

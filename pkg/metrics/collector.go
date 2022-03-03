@@ -7,6 +7,7 @@ const collectorNamespace = "azure_blob_storage_exporter"
 type AzureCollector struct {
 	blobSizeVec      *prometheus.GaugeVec
 	blobCreatedAtVec *prometheus.GaugeVec
+	blobUpdatedAtVec *prometheus.GaugeVec
 }
 
 func NewAzureCollector() *AzureCollector {
@@ -25,17 +26,26 @@ func NewAzureCollector() *AzureCollector {
 				Help:      "unix time of the blob creation time, labeled by name",
 			}, []string{"name"},
 		),
+		blobUpdatedAtVec: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: collectorNamespace,
+				Name:      "blob_updated_at",
+				Help:      "unix time of the blob updated time, labeled by name",
+			}, []string{"name"},
+		),
 	}
 }
 
 func (collector AzureCollector) Describe(ch chan<- *prometheus.Desc) {
 	collector.blobSizeVec.Describe(ch)
 	collector.blobCreatedAtVec.Describe(ch)
+	collector.blobUpdatedAtVec.Describe(ch)
 }
 
 func (collector AzureCollector) Collect(ch chan<- prometheus.Metric) {
 	collector.blobSizeVec.Collect(ch)
 	collector.blobCreatedAtVec.Collect(ch)
+	collector.blobUpdatedAtVec.Collect(ch)
 }
 
 // TrackBlobSize tracks the specific size of a blob object
@@ -46,4 +56,9 @@ func (collector *AzureCollector) TrackBlobSize(name string, size float64) {
 // TrackBlobCreateTime tracks the specific created at time of a blob object
 func (collector *AzureCollector) TrackBlobCreateTime(name string, createdAt float64) {
 	collector.blobCreatedAtVec.WithLabelValues(name).Set(createdAt)
+}
+
+// TrackBlobUpdatedTime tracks the specific updated time of a blob object
+func (collector *AzureCollector) TrackBlobUpdatedTime(name string, updatedAt float64) {
+	collector.blobUpdatedAtVec.WithLabelValues(name).Set(updatedAt)
 }
